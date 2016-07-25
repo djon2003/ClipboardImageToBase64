@@ -1,3 +1,4 @@
+
 /**
  * Library from HTML parsing : https://jsoup.org
  * 
@@ -31,7 +32,7 @@ public class ClipBoardListener extends Thread implements ClipboardOwner {
 	private static DataFlavor HTML_FLAVOR = new DataFlavor("text/html;class=java.io.Reader", "HTML");
 	private int nbImagesConverted = 0;
 	private Transferable currentTransferable;
-	
+
 	@Override
 	public void run() {
 		Transferable trans = sysClip.getContents(this);
@@ -61,10 +62,10 @@ public class ClipBoardListener extends Thread implements ClipboardOwner {
 	void TakeOwnership(Transferable t) {
 		sysClip.setContents(t, this);
 	}
-	
+
 	private void getHtmlDataFlavor(Transferable t) {
 		DataFlavor df = null;
-		
+
 		for (DataFlavor tDf : t.getTransferDataFlavors()) {
 			if (tDf.getMimeType().contains("text/html")) {
 				if (tDf.getRepresentationClass() == java.io.Reader.class) {
@@ -73,22 +74,22 @@ public class ClipBoardListener extends Thread implements ClipboardOwner {
 				}
 			}
 		}
-		
+
 		HTML_FLAVOR = df;
 	}
 
 	public void process_clipboard(Transferable t, Clipboard c) {
-																
+
 		String tempText = "";
 		Transferable trans = t;
 		currentTransferable = t;
-		
+
 		getHtmlDataFlavor(t);
 		if (HTML_FLAVOR == null) {
 			System.out.println("No HTML flavor detected");
-			return;	
+			return;
 		}
-		
+
 		nbImagesConverted = 0;
 		try {
 			if (trans != null ? trans.isDataFlavorSupported(HTML_FLAVOR) : false) {
@@ -96,23 +97,21 @@ public class ClipBoardListener extends Thread implements ClipboardOwner {
 					tempText = (String) trans.getTransferData(DataFlavor.stringFlavor);
 				}
 				java.io.Reader r = (java.io.Reader) trans.getTransferData(HTML_FLAVOR);
-				
+
 				StringBuilder content = getReaderContent(r);
 				String newHtml = changeImages(content);
-				
+
 				currentTransferable = new HtmlSelection(newHtml, tempText);
 				System.out.println("Converted " + nbImagesConverted + " images");
 			} else {
 				System.out.println("Not converted:" + trans.isDataFlavorSupported(HTML_FLAVOR));
 				System.out.println(trans.getTransferData(HTML_FLAVOR));
 				/*
-				for (DataFlavor tt : trans.getTransferDataFlavors()) {
-					if (tt.getMimeType().contains("text/html")) {
-						System.out.println("-------");
-						System.out.println(tt.toString());
-					}
-				}
-				*/
+				 * for (DataFlavor tt : trans.getTransferDataFlavors()) { if
+				 * (tt.getMimeType().contains("text/html")) {
+				 * System.out.println("-------");
+				 * System.out.println(tt.toString()); } }
+				 */
 			}
 
 		} catch (Exception e) {
@@ -121,7 +120,7 @@ public class ClipBoardListener extends Thread implements ClipboardOwner {
 			e.printStackTrace();
 		}
 	}
-	
+
 	private String changeImages(StringBuilder content) throws RuntimeException, IOException {
 		Document doc = Jsoup.parse(content.toString());
 		Elements imgs = doc.select("img");
@@ -129,84 +128,78 @@ public class ClipBoardListener extends Thread implements ClipboardOwner {
 			String filePath = img.attr("src");
 			filePath = filePath.replace("file:///", "");
 			filePath = filePath.replace("file://", "");
-			
+
 			File file = new File(filePath);
 			if (file.exists()) {
 				String encoded = Base64.encodeBase64String(FileUtils.readFileToByteArray(file));
 				String extension = file.getName();
 				extension = extension.substring(extension.lastIndexOf(".") + 1);
 				String dataURL = "data:image/" + extension + ";base64," + encoded;
-				
-		    	img.attr("src", dataURL); // or whatever
-		    	nbImagesConverted++;
+
+				img.attr("src", dataURL); // or whatever
+				nbImagesConverted++;
 			}
 		}
 
 		String html = doc.outerHtml();
-		html = html.replaceAll("(?s)<!--.*?-->", ""); //Remove html comments
+		html = html.replaceAll("(?s)<!--.*?-->", ""); // Remove html comments
 		return html; // returns the modified HTML
 	}
-	
-	
+
 	private StringBuilder getReaderContent(java.io.Reader r) throws IOException {
-	    char[] arr = new char[8 * 1024];
-	    StringBuilder buffer = new StringBuilder();
-	    int numCharsRead;
-	    while ((numCharsRead = r.read(arr, 0, arr.length)) != -1) {
-	        buffer.append(arr, 0, numCharsRead);
-	    }
-	    r.close();
-	    return buffer;
+		char[] arr = new char[8 * 1024];
+		StringBuilder buffer = new StringBuilder();
+		int numCharsRead;
+		while ((numCharsRead = r.read(arr, 0, arr.length)) != -1) {
+			buffer.append(arr, 0, numCharsRead);
+		}
+		r.close();
+		return buffer;
 	}
-	
-    private static class HtmlSelection implements Transferable {
 
-        private String html;
-        private String plainText;
+	private static class HtmlSelection implements Transferable {
 
+		private String html;
+		private String plainText;
 
+		public HtmlSelection(String html, String plainText) {
 
-        public HtmlSelection(String html, String plainText) {
+			this.html = html;
+			this.plainText = plainText;
 
-            this.html = html;
-            this.plainText = plainText;
+		}
 
-        }
+		public DataFlavor[] getTransferDataFlavors() {
 
+			DataFlavor[] dfs = { HTML_FLAVOR, DataFlavor.stringFlavor };
+			return dfs;
 
+		}
 
-        public DataFlavor[] getTransferDataFlavors() {
+		public boolean isDataFlavorSupported(DataFlavor flavor) {
 
-        	DataFlavor[] dfs = {HTML_FLAVOR, DataFlavor.stringFlavor};
-            return dfs;
+			return flavor.getMimeType().contains("text/html") || flavor.getMimeType().contains("text/plain");
 
-        }
+		}
 
+		public Object getTransferData(DataFlavor flavor) throws UnsupportedFlavorException {
 
+			if (flavor.getMimeType().contains("text/html")) {
+				// return new StringReader(html);
+				/* */
+				if (flavor.getRepresentationClass() == java.io.Reader.class) {
+					return new StringReader(html);
+				} else if (flavor.getRepresentationClass() == java.lang.String.class) {
+					return html;
+				}
 
-        public boolean isDataFlavorSupported(DataFlavor flavor) {
+			} else {
+				return plainText;
+			}
 
-            return flavor.getMimeType().contains("text/html") || flavor.getMimeType().contains("text/plain");
+			throw new UnsupportedFlavorException(flavor);
+		}
 
-        }
-
-
-
-        public Object getTransferData(DataFlavor flavor) throws UnsupportedFlavorException {
-
-            if (flavor.getMimeType().contains("text/html")) {
-            	if (flavor.getRepresentationClass() == java.io.Reader.class) {
-                    return new StringReader(html);	
-            	} else {
-            		return html;
-            	}
-             } else {
-               return plainText;
-            }
-            
-            //throw new UnsupportedFlavorException(flavor);
-        }
-
-    } 
+	}
 
 }
