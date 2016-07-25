@@ -15,11 +15,8 @@ import java.awt.datatransfer.Transferable;
 import java.awt.datatransfer.UnsupportedFlavorException;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.Reader;
-import java.io.StringBufferInputStream;
 import java.io.StringReader;
-import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -70,7 +67,6 @@ public class ClipBoardListener extends Thread implements ClipboardOwner {
 
 	public void process_clipboard(Transferable t, Clipboard c) {
 
-		String tempText = "";
 		Transferable trans = t;
 		currentTransferable = t;
 		initialTransferable = t;
