@@ -2,6 +2,10 @@ public class ClipboardImageToBase64 {
 
 	public static void main(String[] args) throws InterruptedException {
 		// TODO Auto-generated method stub
+		if (!System.getProperty("java.runtime.version").startsWith("1.7")) {
+			System.out.println("This program has to be launched using Java 1.7 version");
+			return;
+		}
 		
 		System.out.println("Launched");
 		ClipBoardListener c = new ClipBoardListener();

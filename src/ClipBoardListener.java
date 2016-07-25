@@ -15,7 +15,11 @@ import java.awt.datatransfer.Transferable;
 import java.awt.datatransfer.UnsupportedFlavorException;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.Reader;
+import java.io.StringBufferInputStream;
 import java.io.StringReader;
+import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -32,6 +36,7 @@ public class ClipBoardListener extends Thread implements ClipboardOwner {
 	private static DataFlavor HTML_FLAVOR = new DataFlavor("text/html;class=java.io.Reader", "HTML");
 	private int nbImagesConverted = 0;
 	private Transferable currentTransferable;
+	private static Transferable initialTransferable;
 
 	@Override
 	public void run() {
@@ -63,55 +68,25 @@ public class ClipBoardListener extends Thread implements ClipboardOwner {
 		sysClip.setContents(t, this);
 	}
 
-	private void getHtmlDataFlavor(Transferable t) {
-		DataFlavor df = null;
-
-		for (DataFlavor tDf : t.getTransferDataFlavors()) {
-			if (tDf.getMimeType().contains("text/html")) {
-				if (tDf.getRepresentationClass() == java.io.Reader.class) {
-					df = tDf;
-					break;
-				}
-			}
-		}
-
-		HTML_FLAVOR = df;
-	}
-
 	public void process_clipboard(Transferable t, Clipboard c) {
 
 		String tempText = "";
 		Transferable trans = t;
 		currentTransferable = t;
-
-		getHtmlDataFlavor(t);
-		if (HTML_FLAVOR == null) {
-			System.out.println("No HTML flavor detected");
-			return;
-		}
+		initialTransferable = t;
 
 		nbImagesConverted = 0;
 		try {
 			if (trans != null ? trans.isDataFlavorSupported(HTML_FLAVOR) : false) {
-				if (trans.isDataFlavorSupported(DataFlavor.stringFlavor)) {
-					tempText = (String) trans.getTransferData(DataFlavor.stringFlavor);
-				}
 				java.io.Reader r = (java.io.Reader) trans.getTransferData(HTML_FLAVOR);
 
 				StringBuilder content = getReaderContent(r);
 				String newHtml = changeImages(content);
 
-				currentTransferable = new HtmlSelection(newHtml, tempText);
+				currentTransferable = new HtmlSelection(newHtml);
 				System.out.println("Converted " + nbImagesConverted + " images");
 			} else {
-				System.out.println("Not converted:" + trans.isDataFlavorSupported(HTML_FLAVOR));
-				System.out.println(trans.getTransferData(HTML_FLAVOR));
-				/*
-				 * for (DataFlavor tt : trans.getTransferDataFlavors()) { if
-				 * (tt.getMimeType().contains("text/html")) {
-				 * System.out.println("-------");
-				 * System.out.println(tt.toString()); } }
-				 */
+				System.out.println("Not converted");
 			}
 
 		} catch (Exception e) {
@@ -136,13 +111,14 @@ public class ClipBoardListener extends Thread implements ClipboardOwner {
 				extension = extension.substring(extension.lastIndexOf(".") + 1);
 				String dataURL = "data:image/" + extension + ";base64," + encoded;
 
-				img.attr("src", dataURL); // or whatever
+				String oldImgSrc = img.attr("src");
+				Integer imgIndex = content.indexOf(oldImgSrc);
+				content.replace(imgIndex, imgIndex + oldImgSrc.length(), dataURL);
 				nbImagesConverted++;
 			}
 		}
 
-		String html = doc.outerHtml();
-		html = html.replaceAll("(?s)<!--.*?-->", ""); // Remove html comments
+		String html = content.toString(); 
 		return html; // returns the modified HTML
 	}
 
@@ -160,12 +136,10 @@ public class ClipBoardListener extends Thread implements ClipboardOwner {
 	private static class HtmlSelection implements Transferable {
 
 		private String html;
-		private String plainText;
 
-		public HtmlSelection(String html, String plainText) {
+		public HtmlSelection(String html) {
 
 			this.html = html;
-			this.plainText = plainText;
 
 		}
 
@@ -182,22 +156,20 @@ public class ClipBoardListener extends Thread implements ClipboardOwner {
 
 		}
 
-		public Object getTransferData(DataFlavor flavor) throws UnsupportedFlavorException {
+		public Object getTransferData(DataFlavor flavor) throws UnsupportedFlavorException, IOException {
 
+			
 			if (flavor.getMimeType().contains("text/html")) {
-				// return new StringReader(html);
-				/* */
-				if (flavor.getRepresentationClass() == java.io.Reader.class) {
-					return new StringReader(html);
-				} else if (flavor.getRepresentationClass() == java.lang.String.class) {
-					return html;
-				}
-
+	            if (String.class.equals(flavor.getRepresentationClass())) {
+	                return html;
+	            } else if (Reader.class.equals(flavor.getRepresentationClass())) {
+	                return new StringReader(html);
+	            }
 			} else {
-				return plainText;
+				return initialTransferable.getTransferData(flavor);
 			}
-
 			throw new UnsupportedFlavorException(flavor);
+
 		}
 
 	}
